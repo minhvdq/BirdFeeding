@@ -4,15 +4,16 @@ from typing import Callable
 import cv2
 import numpy as np
 import onnxruntime as ort
-from PIL import Image
-from torchvision import transforms
 
 from src.pipeline.frame_extractor import motion_crop
 
-_IMAGENET_TRANSFORM = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+_IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+def _normalize_frame(bgr_uint8: np.ndarray) -> np.ndarray:
+    """Convert BGR uint8 (H,W,3) → ImageNet-normalized float32 (3,H,W)."""
+    rgb = bgr_uint8[:, :, ::-1].astype(np.float32) / 255.0
+    return ((rgb - _IMAGENET_MEAN) / _IMAGENET_STD).transpose(2, 0, 1)
 
 
 @dataclass
@@ -80,8 +81,7 @@ def _extract_clip_frames(
             reference = frame.copy()
         if idx % interval == 0:
             crop = motion_crop(frame, reference, target_size=(224, 224))
-            pil = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
-            frames.append(_IMAGENET_TRANSFORM(pil).numpy())
+            frames.append(_normalize_frame(crop))
         idx += 1
     cap.release()
     while len(frames) < n_frames:
