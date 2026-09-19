@@ -31,6 +31,7 @@ def parse_feeding_events(csv_path: str) -> list[FeedingEvent]:
     video_col = [c for c in df.columns if "gopro" in c.lower() or "video id" in c.lower()][0]
     ts_col = [c for c in df.columns if "timestamp" in c.lower()][0]
 
+    seen: set[tuple[str, float]] = set()
     events: list[FeedingEvent] = []
     for _, row in df.iterrows():
         event = str(row[event_col])
@@ -40,5 +41,9 @@ def parse_feeding_events(csv_path: str) -> list[FeedingEvent]:
         ts_str = str(row[ts_col]).strip()
         if not ts_str or ts_str.lower() == "nan":
             continue
-        events.append(FeedingEvent(video_id=video_id, timestamp_s=_parse_timestamp(ts_str)))
+        ts = _parse_timestamp(ts_str)
+        if (video_id, ts) in seen:
+            continue
+        seen.add((video_id, ts))
+        events.append(FeedingEvent(video_id=video_id, timestamp_s=ts))
     return events
