@@ -91,11 +91,13 @@ Input: `Feeding Data(Sheet1).csv` + videos (local folder or SharePoint direct UR
 
 For each feeding event row in the CSV:
 - Parse `Video timestamp` column → convert `M:SS` to seconds
-- Extract `[timestamp - 2s, timestamp + 8s]` → **positive clip** (10s window)
+- Extract `[timestamp - 1s, timestamp + 4s]` → **positive clip** (5s window)
 
-For each video, sample 3–4 random non-feeding windows:
-- Must be ≥ 20s from any feeding timestamp in that video
-- Extract same 10s duration → **negative clip**
+For each video, sample negative clips in two tiers (equal split):
+- **Random negatives:** random windows ≥ 20s from any feeding timestamp → easy background examples
+- **Boundary negatives:** windows starting just after `timestamp + post_s` or ending just before `timestamp - pre_s` — hard examples capturing the adult arriving or departing without a feeding transfer
+
+Both tiers use the same 5s duration.
 
 If videos are on SharePoint with direct download URLs, use ffmpeg's remote seek to avoid downloading the full file:
 ```bash
@@ -112,22 +114,21 @@ data/clips/
 
 ### 4.2 Frame Extraction & Preprocessing
 
-For each clip → sample at 2fps → 20 frames per clip.
+For each clip → sample at 2fps → 10 frames per clip (5s × 2fps).
 
 For each frame:
-1. Apply OpenCV MOG2 background subtraction → binary motion mask
-2. Find largest contour in mask → bounding box of active region
-3. Add 30px padding on all sides → crop
-4. Resize crop to 224×224
-5. Save as JPEG
+1. Letterbox-resize the **full frame** to 224×224 (scale so the longer dimension = 224, pad shorter dimension with black)
+2. Save as JPEG
 
-If no motion detected in a frame (common in normal clips) → use center crop of full frame.
+**Rationale:** Motion-crop (absdiff → largest contour → bbox) was replaced because the largest contour frequently corresponds to background birds, grass, or water rather than the feeding interaction. Full-frame input forces the model to learn behavior-based patterns (adult flies in, approaches chick, transfers prey) that generalise across camera angles and backgrounds, which is the correct inductive bias for this task.
+
+The MOG2 motion scan is still used at inference time for **candidate generation** (1fps coarse pass to find windows worth classifying), but motion information is no longer used to decide how to crop individual frames.
 
 **Output:**
 ```
 data/frames/
-  feeding/    ← 78 clips × 20 frames = ~1,560 images
-  normal/     ← ~90 clips × 20 frames = ~1,800 images
+  feeding/    ← clips × 10 frames per clip
+  normal/     ← clips × 10 frames per clip
 ```
 
 ---
@@ -157,12 +158,12 @@ Small enough to train in minutes on Colab T4 with ~160 clips.
 
 ### 5.3 Training
 
-- Split: 80% train / 20% validation (stratified, ~32 held-out clips — ~16 feeding, ~16 normal)
+- **Split: by source video, not by clip.** Group all clips by their video ID prefix (e.g. `GX010539_feed_0000` → video `GX010539`). Split the set of video IDs 80/20. Every clip from a given video lands entirely in train or entirely in validation — never both. This prevents optimistic validation scores caused by shared background, lighting, and bird appearance across clips from the same video. The held-out validation videos are never seen during training.
 - Loss: Binary cross-entropy
 - Optimizer: Adam, lr=1e-3, reduce on plateau
 - Epochs: up to 50 with early stopping (patience=10)
 - Augmentation per clip:
-  - Random horizontal flip (applied consistently across all 20 frames in a clip)
+  - Random horizontal flip (applied consistently across all frames in a clip)
   - Random brightness/contrast jitter (±20%)
   - Temporal jitter: randomly drop 1–2 frames and duplicate adjacent frames
   - Gaussian noise on feature vectors (σ=0.01)
