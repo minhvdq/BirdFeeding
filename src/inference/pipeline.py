@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
-from src.pipeline.frame_extractor import motion_crop
+from src.pipeline.frame_extractor import letterbox_resize
 
 _IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 _IMAGENET_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
@@ -65,23 +65,21 @@ def _cluster_timestamps(timestamps: list[float], gap_s: float = 5.0) -> list[flo
 def _extract_clip_frames(
     video_path: str, center_s: float, clip_duration_s: float = 10.0, sample_fps: float = 2.0
 ) -> np.ndarray:
-    """Extract and preprocess 20 frames around center_s. Returns (T, 3, 224, 224) float32."""
+    """Extract and preprocess frames around center_s. Returns (T, 3, 224, 224) float32."""
     start_s = max(0.0, center_s - clip_duration_s / 2)
     cap = cv2.VideoCapture(video_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     cap.set(cv2.CAP_PROP_POS_FRAMES, int(start_s * src_fps))
     interval = max(1, round(src_fps / sample_fps))
     n_frames = int(clip_duration_s * sample_fps)
-    frames, idx, reference = [], 0, None
+    frames, idx = [], 0
     while len(frames) < n_frames:
         ret, frame = cap.read()
         if not ret:
             break
-        if reference is None:
-            reference = frame.copy()
         if idx % interval == 0:
-            crop = motion_crop(frame, reference, target_size=(224, 224))
-            frames.append(_normalize_frame(crop))
+            resized = letterbox_resize(frame, target_size=(224, 224))
+            frames.append(_normalize_frame(resized))
         idx += 1
     cap.release()
     while len(frames) < n_frames:
