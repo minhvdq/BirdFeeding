@@ -62,6 +62,44 @@ def extract_and_cache_features(frame_dir: str, feature_dir: str, device: str = "
             np.save(os.path.join(out_label_dir, f"{clip_name}.npy"), feats)
 
 
+def _video_id_from_path(path: str) -> str:
+    """GX010539_feed_0000.npy  →  GX010539"""
+    return os.path.basename(path).split("_")[0]
+
+
+def _video_level_split(
+    feature_dir: str,
+) -> tuple[list[str], list[str], list[int], list[int]]:
+    """Split clips into train/val ensuring no video appears on both sides."""
+    from collections import defaultdict
+
+    feed_paths = sorted(glob(os.path.join(feature_dir, "feeding", "*.npy")))
+    norm_paths = sorted(glob(os.path.join(feature_dir, "normal", "*.npy")))
+    all_paths = feed_paths + norm_paths
+    all_labels = [1] * len(feed_paths) + [0] * len(norm_paths)
+
+    by_video: dict[str, list[tuple[str, int]]] = defaultdict(list)
+    for path, label in zip(all_paths, all_labels):
+        by_video[_video_id_from_path(path)].append((path, label))
+
+    video_ids = sorted(by_video.keys())
+    rng = random.Random(42)
+    rng.shuffle(video_ids)
+    n_val = max(1, len(video_ids) // 5)
+    val_ids = set(video_ids[-n_val:])
+
+    tr_paths, tr_labels, val_paths, val_labels = [], [], [], []
+    for vid in video_ids:
+        for path, label in by_video[vid]:
+            if vid in val_ids:
+                val_paths.append(path)
+                val_labels.append(label)
+            else:
+                tr_paths.append(path)
+                tr_labels.append(label)
+    return tr_paths, val_paths, tr_labels, val_labels
+
+
 def train(
     feature_dir: str,
     model_out: str,
@@ -69,16 +107,8 @@ def train(
     lr: float = 1e-3,
     device: str = "cuda",
 ) -> None:
-    feed_paths = sorted(glob(os.path.join(feature_dir, "feeding", "*.npy")))
-    norm_paths = sorted(glob(os.path.join(feature_dir, "normal", "*.npy")))
-    all_paths = feed_paths + norm_paths
-    all_labels = [1] * len(feed_paths) + [0] * len(norm_paths)
-
-    # 80/20 stratified split
-    from sklearn.model_selection import train_test_split
-    tr_paths, val_paths, tr_labels, val_labels = train_test_split(
-        all_paths, all_labels, test_size=0.2, stratify=all_labels, random_state=42
-    )
+    # Video-level split
+    tr_paths, val_paths, tr_labels, val_labels = _video_level_split(feature_dir)
 
     tr_ds = BirdClipDataset(tr_paths, tr_labels, augment=True)
     val_ds = BirdClipDataset(val_paths, val_labels, augment=False)

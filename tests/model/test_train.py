@@ -38,3 +38,31 @@ def test_extract_and_cache_features(tmp_path):
     extract_and_cache_features(str(tmp_path / "frames"), str(feat_out), device="cpu")
     saved = list(feat_out.rglob("*.npy"))
     assert len(saved) > 0
+
+
+def test_video_level_split_no_video_in_both_sets(tmp_path):
+    """No video ID should appear in both train and validation paths."""
+    from src.model.train import _video_id_from_path, _video_level_split
+
+    feat_dir = tmp_path / "features"
+    for label in ("feeding", "normal"):
+        (feat_dir / label).mkdir(parents=True)
+        for vid_num in range(5):
+            vid_id = f"GX{vid_num:06d}"
+            suffix = "feed" if label == "feeding" else "normal"
+            for clip_num in range(2):
+                p = feat_dir / label / f"{vid_id}_{suffix}_{clip_num:04d}.npy"
+                np.save(str(p), np.random.randn(10, 1280).astype(np.float32))
+
+    tr_paths, val_paths, tr_labels, val_labels = _video_level_split(str(feat_dir))
+
+    tr_ids = {_video_id_from_path(p) for p in tr_paths}
+    val_ids = {_video_id_from_path(p) for p in val_paths}
+
+    # Strict: no video on both sides
+    assert tr_ids.isdisjoint(val_ids), f"Overlap: {tr_ids & val_ids}"
+    # Together they cover all 5 videos
+    assert len(tr_ids | val_ids) == 5
+    # Labels are binary
+    assert set(tr_labels) <= {0, 1}
+    assert set(val_labels) <= {0, 1}
