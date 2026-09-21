@@ -88,7 +88,7 @@ def build_negative_clips(
     output_dir: str,
     clips_per_video: int = 4,
     min_gap_s: float = 20.0,
-    clip_duration_s: float = 10.0,
+    clip_duration_s: float = 5.0,
     pre_s: float = 1.0,
     post_s: float = 4.0,
 ) -> list[str]:
