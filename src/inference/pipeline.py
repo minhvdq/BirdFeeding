@@ -65,7 +65,7 @@ def _cluster_timestamps(timestamps: list[float], gap_s: float = 5.0) -> list[flo
 def _extract_clip_frames(
     video_path: str, center_s: float, clip_duration_s: float = 10.0, sample_fps: float = 2.0
 ) -> np.ndarray:
-    """Extract and preprocess frames around center_s. Returns (T, 3, 224, 224) float32."""
+    """Extract and preprocess frames around center_s. Returns (T, 3, 480, 480) float32."""
     start_s = max(0.0, center_s - clip_duration_s / 2)
     cap = cv2.VideoCapture(video_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -78,13 +78,13 @@ def _extract_clip_frames(
         if not ret:
             break
         if idx % interval == 0:
-            resized = letterbox_resize(frame, target_size=(224, 224))
+            resized = letterbox_resize(frame, target_size=(480, 480))
             frames.append(_normalize_frame(resized))
         idx += 1
     cap.release()
     while len(frames) < n_frames:
-        frames.append(frames[-1] if frames else np.zeros((3, 224, 224), dtype=np.float32))
-    return np.stack(frames[:n_frames], axis=0).astype(np.float32)  # (T, 3, 224, 224)
+        frames.append(frames[-1] if frames else np.zeros((3, 480, 480), dtype=np.float32))
+    return np.stack(frames[:n_frames], axis=0).astype(np.float32)  # (T, 3, 480, 480)
 
 
 class FeedingDetector:
@@ -95,7 +95,7 @@ class FeedingDetector:
         self._cls_input = self._cls_sess.get_inputs()[0].name
 
     def _embed_clip(self, frames: np.ndarray) -> np.ndarray:
-        """frames: (T, 3, 224, 224) -> features: (1, T, 1280)"""
+        """frames: (T, 3, 480, 480) -> features: (1, T, 1280)"""
         feats = self._feat_sess.run(None, {self._feat_input: frames})[0]  # (T, 1280)
         return feats[np.newaxis]  # (1, T, 1280)
 

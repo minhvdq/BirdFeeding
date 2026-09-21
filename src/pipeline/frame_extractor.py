@@ -21,7 +21,7 @@ def sample_frames(clip_path: str, sample_fps: float = 2.0) -> list[np.ndarray]:
 
 def letterbox_resize(
     frame: np.ndarray,
-    target_size: tuple[int, int] = (224, 224),
+    target_size: tuple[int, int] = (480, 480),
 ) -> np.ndarray:
     """Resize full frame to target_size with black letterbox padding."""
     h, w = frame.shape[:2]
@@ -39,10 +39,10 @@ def letterbox_resize(
 def process_clip(
     clip_path: str,
     sample_fps: float = 2.0,
-    target_size: tuple[int, int] = (224, 224),
+    target_size: tuple[int, int] = (480, 480),
 ) -> np.ndarray:
     raw_frames = sample_frames(clip_path, sample_fps)
     if not raw_frames:
         return np.zeros((0, *target_size, 3), dtype=np.uint8)
     processed = [letterbox_resize(f, target_size=target_size) for f in raw_frames]
-    return np.stack(processed, axis=0)  # (N, 224, 224, 3)
+    return np.stack(processed, axis=0)  # (N, 480, 480, 3)

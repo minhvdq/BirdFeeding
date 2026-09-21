@@ -117,7 +117,7 @@ data/clips/
 For each clip → sample at 2fps → 10 frames per clip (5s × 2fps).
 
 For each frame:
-1. Letterbox-resize the **full frame** to 224×224 (scale so the longer dimension = 224, pad shorter dimension with black)
+1. Letterbox-resize the **full frame** to 480×480 (scale so the longer dimension = 480, pad shorter dimension with black). 224×224 was too small for 1080p GoPro footage — a bird occupying 10% of frame height became only 12px tall, losing too much spatial detail for EfficientNet to extract useful features.
 2. Save as JPEG
 
 **Rationale:** Motion-crop (absdiff → largest contour → bbox) was replaced because the largest contour frequently corresponds to background birds, grass, or water rather than the feeding interaction. Full-frame input forces the model to learn behavior-based patterns (adult flies in, approaches chick, transfers prey) that generalise across camera angles and backgrounds, which is the correct inductive bias for this task.
@@ -189,7 +189,7 @@ Sample 1 frame per second. Run MOG2 background subtraction on each. Record times
 Cluster motion timestamps that are within 5s of each other → one candidate window per cluster. Extract a 10s clip centered on each cluster midpoint.
 
 **Step 3 — Feature extraction**  
-For each candidate clip: sample 20 frames at 2fps → crop motion regions → resize → run through `efficientnet_features.onnx` → 20 × 1280-dim sequence.
+For each candidate clip: sample frames at 2fps → letterbox-resize each to 480×480 → run through `efficientnet_features.onnx` → T × 1280-dim sequence.
 
 **Step 4 — Temporal classification**  
 Feed sequence into `temporal_classifier.onnx` → feeding probability score.
