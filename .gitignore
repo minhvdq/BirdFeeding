@@ -1,0 +1,34 @@
+# Training data — large files, generated locally
+data/
+
+# Trained models — downloaded separately after Colab training
+models/
+
+# Google Drive OAuth credentials — never commit
+credentials/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# macOS
+.DS_Store
+.localized
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+
+# Superpowers SDD scratch (git-ignored workspace)
+.superpowers/
