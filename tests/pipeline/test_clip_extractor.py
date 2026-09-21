@@ -54,3 +54,24 @@ def test_build_negative_clips_avoids_feeding_windows(synthetic_video, tmp_path):
         cap = cv2.VideoCapture(p)
         cap.release()
         assert os.path.exists(p)
+
+
+def test_build_negative_clips_includes_boundary_windows(synthetic_video, tmp_path):
+    """With a feeding event near the middle of a 15s video, boundary windows
+    just after the event must be generated."""
+    video_path, ts = synthetic_video  # ts is around 7.5s in a 15s video
+    video_dir = str(tmp_path / "videos")
+    os.makedirs(video_dir)
+    import shutil
+    shutil.copy(video_path, os.path.join(video_dir, "GX_TEST.mp4"))
+    out_dir = str(tmp_path / "clips" / "normal_boundary")
+    events = [FeedingEvent(video_id="GX_TEST", timestamp_s=ts)]
+    paths = build_negative_clips(
+        events, video_dir, out_dir,
+        clips_per_video=2, min_gap_s=20.0,
+        clip_duration_s=5.0, pre_s=1.0, post_s=4.0,
+    )
+    # At least one clip must have been created
+    assert len(paths) >= 1
+    for p in paths:
+        assert os.path.exists(p)

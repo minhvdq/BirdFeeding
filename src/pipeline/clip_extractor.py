@@ -42,8 +42,8 @@ def build_positive_clips(
     events: list[FeedingEvent],
     video_dir: str,
     output_dir: str,
-    pre_s: float = 2.0,
-    post_s: float = 8.0,
+    pre_s: float = 1.0,
+    post_s: float = 4.0,
 ) -> list[str]:
     os.makedirs(output_dir, exist_ok=True)
     paths = []
@@ -57,6 +57,31 @@ def build_positive_clips(
     return paths
 
 
+def _boundary_candidates(
+    feeding_timestamps: list[float],
+    duration: float,
+    clip_duration_s: float,
+    pre_s: float,
+    post_s: float,
+) -> list[tuple[float, float]]:
+    """Windows just outside each feeding event, filtered to avoid other events."""
+    candidates = []
+    for ts in feeding_timestamps:
+        after_start = ts + post_s
+        if after_start + clip_duration_s <= duration:
+            candidates.append((after_start, after_start + clip_duration_s))
+        before_end = ts - pre_s
+        if before_end - clip_duration_s >= 0:
+            candidates.append((before_end - clip_duration_s, before_end))
+    # Drop any window whose midpoint lands inside another feeding window
+    safe = []
+    for start, end in candidates:
+        mid = (start + end) / 2
+        if not any(abs(mid - ft) < clip_duration_s / 2.0 for ft in feeding_timestamps):
+            safe.append((start, end))
+    return safe
+
+
 def build_negative_clips(
     events: list[FeedingEvent],
     video_dir: str,
@@ -64,6 +89,8 @@ def build_negative_clips(
     clips_per_video: int = 4,
     min_gap_s: float = 20.0,
     clip_duration_s: float = 10.0,
+    pre_s: float = 1.0,
+    post_s: float = 4.0,
 ) -> list[str]:
     os.makedirs(output_dir, exist_ok=True)
     by_video: dict[str, list[float]] = defaultdict(list)
@@ -78,10 +105,24 @@ def build_negative_clips(
         except FileNotFoundError:
             continue
         duration = _video_duration(video_path)
-        if duration < clip_duration_s + min_gap_s:
+        if duration < clip_duration_s:
             continue
 
-        attempts, found = 0, 0
+        n_boundary = clips_per_video // 2
+        n_random = clips_per_video - n_boundary
+        found = 0
+
+        # Boundary negatives (hard examples adjacent to feeding windows)
+        candidates = _boundary_candidates(feeding_timestamps, duration, clip_duration_s, pre_s, post_s)
+        rng.shuffle(candidates)
+        for start, end in candidates[:n_boundary]:
+            out = os.path.join(output_dir, f"{video_id}_normal_{found:04d}.mp4")
+            extract_clip(video_path, start, end, out)
+            paths.append(out)
+            found += 1
+
+        # Random negatives (easy background examples ≥ min_gap_s from any event)
+        attempts = 0
         while found < clips_per_video and attempts < 200:
             attempts += 1
             start = rng.uniform(0, duration - clip_duration_s)
