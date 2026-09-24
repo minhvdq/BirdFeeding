@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 
-def sample_frames(clip_path: str, sample_fps: float = 2.0) -> list[np.ndarray]:
+def sample_frames(clip_path: str, sample_fps: float = 4.0) -> list[np.ndarray]:
     cap = cv2.VideoCapture(clip_path)
     src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     interval = max(1, round(src_fps / sample_fps))
@@ -38,7 +38,7 @@ def letterbox_resize(
 
 def process_clip(
     clip_path: str,
-    sample_fps: float = 2.0,
+    sample_fps: float = 4.0,
     target_size: tuple[int, int] = (480, 480),
 ) -> np.ndarray:
     raw_frames = sample_frames(clip_path, sample_fps)

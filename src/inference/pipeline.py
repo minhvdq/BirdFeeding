@@ -63,7 +63,7 @@ def _cluster_timestamps(timestamps: list[float], gap_s: float = 5.0) -> list[flo
 
 
 def _extract_clip_frames(
-    video_path: str, center_s: float, clip_duration_s: float = 10.0, sample_fps: float = 2.0
+    video_path: str, center_s: float, clip_duration_s: float = 10.0, sample_fps: float = 4.0
 ) -> np.ndarray:
     """Extract and preprocess frames around center_s. Returns (T, 3, 480, 480) float32."""
     start_s = max(0.0, center_s - clip_duration_s / 2)

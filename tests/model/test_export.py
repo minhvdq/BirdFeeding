@@ -11,7 +11,7 @@ def test_export_feature_extractor(tmp_path):
     export_feature_extractor(out)
     assert os.path.exists(out)
     sess = ort.InferenceSession(out)
-    dummy = np.zeros((1, 3, 224, 224), dtype=np.float32)
+    dummy = np.zeros((1, 3, 480, 480), dtype=np.float32)
     result = sess.run(None, {sess.get_inputs()[0].name: dummy})
     assert result[0].shape == (1, 1280)
 

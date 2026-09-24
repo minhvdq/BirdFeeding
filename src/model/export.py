@@ -10,7 +10,7 @@ from src.model.temporal import TemporalClassifier
 
 def export_feature_extractor(out_path: str) -> None:
     model = EfficientNetFeatureExtractor().eval()
-    dummy = torch.zeros(1, 3, 224, 224)
+    dummy = torch.zeros(1, 3, 480, 480)
     torch.onnx.export(
         model, dummy, out_path,
         dynamo=False,
